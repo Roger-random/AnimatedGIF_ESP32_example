@@ -23,17 +23,10 @@
 // ----------------------------
 
 #include <AnimatedGIF.h>
+#include <ESP_8_BIT_GFX.h>
 
-#include <ESP32-RGB64x32MatrixPanel-I2S-DMA.h>
-// This is the library for interfacing with the display
-
-// Can be installed from the library manager (Search for "ESP32 64x32 LED MATRIX")
-// https://github.com/mrfaptastic/ESP32-RGB64x32MatrixPanel-I2S-DMA
-
-// ----------------------------
-
-
-RGB64x32MatrixPanel_I2S_DMA dma_display;
+// Create an instance of the graphics library
+ESP_8_BIT_GFX videoOut(true /* = NTSC */, 16 /* = RGB565 color */);
 AnimatedGIF gif;
 
 // Draw a line of image directly on the LCD
@@ -49,7 +42,7 @@ void GIFDraw(GIFDRAW *pDraw)
     s = pDraw->pPixels;
     if (pDraw->ucDisposalMethod == 2) // restore to background color
     {
-      for (x=0; x<iWidth; x++)
+      for (x=0; x<pDraw->iWidth; x++)
       {
         if (s[x] == pDraw->ucTransparent)
            s[x] = pDraw->ucBackground;
@@ -84,7 +77,7 @@ void GIFDraw(GIFDRAW *pDraw)
         if (iCount) // any opaque pixels?
         {
           for(int xOffset = 0; xOffset < iCount; xOffset++ ){
-            dma_display.drawPixelRGB565(x + xOffset, y, usTemp[xOffset]);
+            videoOut.drawPixel(x + xOffset, y, usTemp[xOffset]);
           }
           x += iCount;
           iCount = 0;
@@ -112,7 +105,7 @@ void GIFDraw(GIFDRAW *pDraw)
       // Translate the 8-bit pixels through the RGB565 palette (already byte reversed)
       for (x=0; x<pDraw->iWidth; x++)
       {
-        dma_display.drawPixelRGB565(x, y, usPalette[*s++]);
+        videoOut.drawPixel(x, y, usPalette[*s++]);
       }
     }
 } /* GIFDraw() */
@@ -121,8 +114,8 @@ void GIFDraw(GIFDRAW *pDraw)
 void setup() {
   Serial.begin(115200);
   
-  dma_display.begin();
-  dma_display.fillScreen(dma_display.color565(0, 0, 0));
+  videoOut.begin();
+  videoOut.copyAfterSwap = true;
   gif.begin(LITTLE_ENDIAN_PIXELS);
 }
 
@@ -133,7 +126,9 @@ void loop() {
     Serial.printf("Successfully opened GIF; Canvas size = %d x %d\n", gif.getCanvasWidth(), gif.getCanvasHeight());
     while (gif.playFrame(true, NULL))
     {      
+      videoOut.waitForFrame();
     }
+    videoOut.waitForFrame();
     gif.close();
   }
 }
